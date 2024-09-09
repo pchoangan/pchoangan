@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Quản lý dữ liệu</title>    
+
+    <style>
+      .container {
+        width: 98%; /* Ví dụ: Chiều rộng của div chứa bảng */
+        overflow: auto; /* Hiển thị thanh cuộn khi cần thiết */
+      }
+      #myTable {
+        font-family: Arial, Helvetica, sans-serif;
+        border-collapse: collapse;
+        width: 100%;
+        height: auto;
+        overflow-y: auto;
+        overflow-x: hidden;
+      }
+      #myTable td,
+      #myTable th {
+        border: 1px solid #ddd;
+        padding: 8px;
+      }
+      #myTable tr:nth-child(even) {
+        background-color: #f2f2f2;
+      }
+      #myTable tr:hover {
+        background-color: #ddd;
+      }
+      #myTable th {
+        padding-top: 12px;
+        padding-bottom: 12px;
+        text-align: left;
+        background-color: #04aa6d;
+        color: white;
+        white-space: nowrap;
+      }
+      input {
+        width: 100%;
+        padding: 10px;
+        display: inline-block;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        box-sizing: border-box;
+      }
+      p {
+        width: 100%;
+        padding: 5px;
+        box-sizing: border-box;
+      }
+      button {
+        border: none;
+        background-color: #f1f1f1;
+        padding: 10px 16px;
+        text-decoration: none;
+        color: black;
+        margin: 4px 2px;
+        cursor: pointer;
+        border-radius: 5px;
+      }
+      button:hover {
+        background-color: #45a049;
+      }
+      div {
+        padding: 5px;
+      }
+      .pagination {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        margin-top: 20px;
+      }
+      .pagination button {
+        border: 1px solid #ddd;
+        background-color: #f8f9fa;
+        color: #007bff;
+        padding: 8px 12px;
+        margin: 0 4px;
+        cursor: pointer;
+        border-radius: 4px;
+        transition: all 0.3s ease;
+      }
+      .pagination button:hover {
+        background-color: #e9ecef;
+      }
+      .pagination button.active {
+        background-color: #007bff;
+        color: white;
+        border-color: #007bff;
+      }
+      textarea {
+        width: 100%;
+        padding: 3px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        font-family: "Roboto", sans-serif;
+        font-size: 16px;
+        resize: vertical;
+        transition: all 0.3s ease-in-out;
+      }
+      textarea:focus {
+        outline: none;
+        border-color: #007bff;
+        box-shadow: 0px 3px 6px rgba(0, 0, 0, 0.16),
+          0px 3px 6px rgba(0, 0, 0, 0.23);
+      }
+      form p:first-child,
+      form p:nth-child(2) {
+        display: none;
+      }
+      table tr th:first-child,
+      table tr td:first-child {
+        display: none;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div id="filterContainer">
+        <input
+          type="text"
+          id="tableFilter"
+          placeholder="Nhập từ khóa để lọc..."
+          onkeyup="filterTable()"
+        />
+        <div id="filterResult"></div>
+      </div>
+      <nav aria-label="Page navigation">
+        <ul id="pagination" class="pagination"></ul>
+      </nav>
+      <div class="container">
+        <table id="myTable">
+          <thead></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <form id="myForm"></form>
+      <div id="result"></div>
+    </div>
+    
+    <script>
+      const scriptUrl =
+        "https://script.google.com/macros/s/AKfycbyUjRHDfw1K8XugDiwbZUJESGKK07UTw9UPujcAqVwFuQGC9Y0akF4nDJTscj7gK8o/exec";
+      const table = document.getElementById("myTable");
+      const tbody = table.querySelector("tbody");
+      const form = document.getElementById("myForm");
+      // Biến để lưu trữ dữ liệu gốc
+      let globalData = [];
+      // Thêm biến số hàng trên mỗi trang
+      const rowsPerPage = 5; // Bạn có thể điều chỉnh số này
+
+      // Thêm hàm phân trang
+      function myPagination() {
+        const rows = document.querySelectorAll("#myTable tbody tr");
+        const totalPages = Math.ceil(rows.length / rowsPerPage);
+        const paginationContainer = document.getElementById("pagination");
+        paginationContainer.innerHTML = "";
+
+        for (let i = 1; i <= totalPages; i++) {
+          const button = document.createElement("button");
+          button.textContent = i;
+          button.addEventListener("click", () => goToPage(i, rows));
+          paginationContainer.appendChild(button);
+        }
+
+        goToPage(totalPages, rows);
+      }
+
+      function goToPage(page, rows) {
+        const startIndex = (page - 1) * rowsPerPage;
+        const endIndex = startIndex + rowsPerPage;
+
+        rows.forEach((row, index) => {
+          row.style.display =
+            index >= startIndex && index < endIndex ? "" : "none";
+        });
+
+        updateActiveButton(page);
+      }
+      // Cập nhật nút trang đang hoạt động
+      function updateActiveButton(currentPage) {
+        document
+          .querySelectorAll("#pagination button")
+          .forEach((btn, index) => {
+            btn.classList.toggle("active", index + 1 === currentPage);
+          });
+      }
+      // Cập nhật hàm filterTable
+      function filterTable() {
+        const filterValue = document
+          .getElementById("tableFilter")
+          .value.toLowerCase();
+        const filteredData = globalData.filter((row) =>
+          row.some((cell) =>
+            cell.toString().toLowerCase().includes(filterValue)
+          )
+        );
+        //tạo dòng mới cho bảng
+        const tbody = document.querySelector("#myTable tbody");
+        tbody.innerHTML = "";
+        filteredData.forEach((row, index) => {
+          const tr = document.createElement("tr");
+          tr.setAttribute("id", index);
+          let rowID = "row" + (index + 1);
+          row.forEach((cell, cellIndex) => {
+            const td = document.createElement("td");
+            td.innerHTML = cell;
+            td.setAttribute("class", rowID);
+            td.setAttribute("onclick", "find('" + rowID + "')");
+            tr.appendChild(td);
+          });
+          tbody.appendChild(tr);
+        });
+        updateFilterResult(filteredData.length, globalData.length);
+        myPagination();
+      }
+      function updateFilterResult(filteredCount, totalCount) {
+        document.getElementById(
+          "filterResult"
+        ).textContent = `Hiển thị ${filteredCount} / ${totalCount} kết quả`;
+      }
+
+      // Hàm tạo bảng
+      function createTable(data) {
+        globalData = data.slice(1); // Lưu dữ liệu gốc (trừ tiêu đề)
+        // Tạo tiêu đề bảng
+        const headerRow = document.createElement("tr");
+        data[0].forEach((header, index) => {
+          const th = document.createElement("th");
+          th.textContent = header;
+          headerRow.appendChild(th);
+        });
+        document.querySelector("#myTable thead").appendChild(headerRow);
+        // Tạo các hàng dữ liệu
+        data.slice(1).forEach((row, index) => {
+          const tr = document.createElement("tr");
+          tr.setAttribute("id", index);
+          index++;
+          let rowID = "row" + index;
+          row.forEach((cell) => {
+            const td = document.createElement("td");
+            td.innerHTML = cell;
+            td.setAttribute("class", rowID);
+            td.setAttribute("onclick", "find('" + rowID + "')");
+            tr.appendChild(td);
+          });
+          document.querySelector("#myTable tbody").appendChild(tr);
+        });
+      }
+      // Hàm tạo form động
+      function createForm(headers) {
+        form.innerHTML = ""; // Xóa nội dung form cũ
+        headers.forEach((header) => {
+          const p = document.createElement("p");
+          p.setAttribute("id", header);
+          const br = document.createElement("br");
+          const label = document.createElement("label");
+          label.textContent = header + ": ";
+          const input = document.createElement("textarea");
+          input.type = "text";
+          input.name = header;
+          input.setAttribute("class", "myInput");
+          p.appendChild(label);
+          p.appendChild(br);
+          p.appendChild(input);
+          form.appendChild(p);
+        });
+
+        const buttonContainer = document.createElement("p");
+        ["Thêm", "Cập nhật", "Xóa"].forEach((text) => {
+          const button = document.createElement("button");
+          button.type = "button";
+          button.textContent = text;
+          button.onclick =
+            text === "Thêm" ? addNew : text === "Cập nhật" ? update : Delete;
+          buttonContainer.appendChild(button);
+        });
+        form.appendChild(buttonContainer);
+      }
+
+      // Hàm tìm dữ liệu hàng và ghi vào input
+      function find(row) {
+        const th = table.getElementsByTagName("th");
+        const td = table.getElementsByClassName(row);
+        for (let i = 0; i < th.length; i++) {
+          document.getElementsByClassName("myInput")[i].value = td[i].innerHTML;
+        }
+      }
+
+      // Hàm thêm mới
+      function addNew() {
+        const input = form.getElementsByClassName("myInput");
+        // Kiểm tra dòng đầu tiên
+        if (tbody.getElementsByTagName("TR").length >= 1) {
+          let lastRowID = "row" + tbody.getElementsByTagName("TR").length; //láy STT
+          input[0].value = tbody.getElementsByClassName(lastRowID)[0].innerHTML;
+          input[0].value++;
+        } else {
+          input[0].value = 1;
+        }
+        input[1].value = new Date().toLocaleString("vi-VN");
+        const tr = document.createElement("TR");
+        tbody.appendChild(tr);
+        let rowID = "row" + input[0].value;
+        for (let i = 0; i < input.length; i++) {
+          const td = document.createElement("TD");
+          td.setAttribute("class", rowID);
+          td.setAttribute("onclick", "find('" + rowID + "')");
+          td.innerHTML = input[i].value;
+          tr.appendChild(td);
+        }
+        buttonClick("add");
+        myPagination();
+        form.reset();
+      }
+      // Hàm cập nhật
+      function update() {
+        const input = form.getElementsByClassName("myInput");
+        const valueToUpdate = input[0].value;
+        const rows = tbody.rows;
+        for (let i = 0; i < rows.length; i++) {
+          const row = rows[i];
+          const td = row.cells[0].textContent;
+          if (td === valueToUpdate) {
+            for (let j = 0; j < row.cells.length; j++) {
+              row.cells[j].innerHTML = input[j].value;
+            }
+            break;
+          }
+        }
+        buttonClick("update");
+        form.reset();
+      }
+      // Hàm xóa
+      function Delete() {
+        const input = form.getElementsByClassName("myInput");
+        const valueToDelete = input[0].value;
+        const rows = tbody.rows;
+        for (let i = 0; i < rows.length; i++) {
+          const row = rows[i];
+          const td = row.cells[0].textContent;
+          if (td === valueToDelete) {
+            tbody.deleteRow(i);
+            break;
+          }
+        }
+        buttonClick("delete");
+        myPagination();
+        form.reset();
+      }
+      // Hàm xử lý sự kiện nút bấm
+      async function buttonClick(func) {
+        const formData = new FormData(form);
+        const data = Object.fromEntries(formData.entries());
+        data.action = func;
+        console.log(data);
+        try {
+          const response = await fetch(scriptUrl, {
+            method: "POST",
+            body: JSON.stringify(data),
+          });
+          const result = await response.json();
+          if (result.success) {
+            document.getElementById("result").textContent = result.message;
+          } else {
+            document.getElementById("result").textContent = result.message;
+          }
+        } catch (error) {
+          console.error("Lỗi:", error);
+          document.getElementById("result").textContent = error.message;
+        }
+      }
+
+      // Khởi tạo dữ liệu
+      fetch(scriptUrl)
+        .then((response) => response.json())
+        .then((data) => {
+          createTable(data);
+          createForm(data[0]);
+          myPagination();
+          //updateFilterResult(data.length - 1, data.length - 1); // Cập nhật kết quả ban đầu
+        })
+        .catch((error) => {
+          console.error("Lỗi:", error);
+        });
+    </script>
+  </body>
+</html>
