@@ -3,12 +3,12 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Quản lý dữ liệu</title>    
+    <title>Quản lý dữ liệu</title>
 
     <style>
       .container {
-        width: 98%; /* Ví dụ: Chiều rộng của div chứa bảng */
-        overflow: auto; /* Hiển thị thanh cuộn khi cần thiết */
+        width: 98%; 
+        overflow: auto; 
       }
       #myTable {
         font-family: Arial, Helvetica, sans-serif;
@@ -114,6 +114,9 @@
       table tr td:first-child {
         display: none;
       }
+      .error-row {
+        color: red;
+      }
     </style>
   </head>
   <body>
@@ -127,59 +130,70 @@
         />
         <div id="filterResult"></div>
       </div>
-      <nav aria-label="Page navigation">
-        <ul id="pagination" class="pagination"></ul>
-      </nav>
+
       <div class="container">
         <table id="myTable">
           <thead></thead>
-          <tbody></tbody>
+          <tbody></tbody> 
         </table>
       </div>
+      <nav aria-label="Page navigation">
+        <ul id="pagination" class="pagination"></ul>
+      </nav>
       <form id="myForm"></form>
       <div id="result"></div>
     </div>
-    
     <script>
       const scriptUrl =
-        "https://script.google.com/macros/s/AKfycbyUjRHDfw1K8XugDiwbZUJESGKK07UTw9UPujcAqVwFuQGC9Y0akF4nDJTscj7gK8o/exec";
+        "https://script.google.com/macros/s/AKfycby8ZUyku3CStGRh_NvRr2Itk10LWlR4oNihn2sZgg8gsW1ik8AUHv3u9_48gZeO9QL9/exec";
       const table = document.getElementById("myTable");
       const tbody = table.querySelector("tbody");
       const form = document.getElementById("myForm");
-      // Biến để lưu trữ dữ liệu gốc
-      let globalData = [];
-      // Thêm biến số hàng trên mỗi trang
-      const rowsPerPage = 5; // Bạn có thể điều chỉnh số này
+      const inputs = form.getElementsByTagName("textarea");
+      let errorRow = [];
+      let tableData = [];
+      let rowsPerPage = 5;
 
-      // Thêm hàm phân trang
-      function myPagination() {
+      function filterTable() {
+        const filterValue = document
+          .getElementById("tableFilter")
+          .value.toLowerCase();
+        const filteredData = tableData
+          .slice(1)
+          .filter((row) =>
+            row.some((cell) =>
+              cell.toString().toLowerCase().includes(filterValue)
+            )
+          );
+        document.getElementById(
+          "filterResult"
+        ).textContent = `Hiển thị ${filteredData.length} / ${tableData.length} kết quả`;
+        setBodyTable(filteredData);
+      }
+      function pagination() {
         const rows = document.querySelectorAll("#myTable tbody tr");
         const totalPages = Math.ceil(rows.length / rowsPerPage);
         const paginationContainer = document.getElementById("pagination");
         paginationContainer.innerHTML = "";
-
         for (let i = 1; i <= totalPages; i++) {
           const button = document.createElement("button");
           button.textContent = i;
-          button.addEventListener("click", () => goToPage(i, rows));
+          button.addEventListener("click", () => goToPage(i, rows, totalPages));
           paginationContainer.appendChild(button);
         }
-
-        goToPage(totalPages, rows);
+        goToPage(totalPages, rows, totalPages);
       }
-
-      function goToPage(page, rows) {
-        const startIndex = (page - 1) * rowsPerPage;
-        const endIndex = startIndex + rowsPerPage;
-
+      function goToPage(page, rows, totalPages) {
+        const totalRows = rows.length;
+        let startIndex, endIndex;
+        endIndex = totalRows - (totalPages - page) * rowsPerPage;
+        startIndex = endIndex - rowsPerPage;
         rows.forEach((row, index) => {
           row.style.display =
             index >= startIndex && index < endIndex ? "" : "none";
         });
-
         updateActiveButton(page);
       }
-      // Cập nhật nút trang đang hoạt động
       function updateActiveButton(currentPage) {
         document
           .querySelectorAll("#pagination button")
@@ -187,87 +201,50 @@
             btn.classList.toggle("active", index + 1 === currentPage);
           });
       }
-      // Cập nhật hàm filterTable
-      function filterTable() {
-        const filterValue = document
-          .getElementById("tableFilter")
-          .value.toLowerCase();
-        const filteredData = globalData.filter((row) =>
-          row.some((cell) =>
-            cell.toString().toLowerCase().includes(filterValue)
-          )
-        );
-        //tạo dòng mới cho bảng
-        const tbody = document.querySelector("#myTable tbody");
+
+      function setHeaderTable() {
+        let thead = document.querySelector("thead");
+        let tr = document.createElement("tr");
+        tableData[0].forEach((item) => {
+          let th = document.createElement("th");
+          th.textContent = item;
+          tr.appendChild(th);
+        });
+        thead.appendChild(tr);
+      }
+      function setBodyTable(tbodyData) {
+        let tbody = document.querySelector("tbody");
         tbody.innerHTML = "";
-        filteredData.forEach((row, index) => {
-          const tr = document.createElement("tr");
-          tr.setAttribute("id", index);
-          let rowID = "row" + (index + 1);
-          row.forEach((cell, cellIndex) => {
-            const td = document.createElement("td");
-            td.innerHTML = cell;
-            td.setAttribute("class", rowID);
-            td.setAttribute("onclick", "find('" + rowID + "')");
+        tbodyData.forEach((rows, index) => {
+          let tr = document.createElement("tr");
+          tr.id = `Row${index}`;
+          tr.onclick = () => find("Row" + index);
+          rows.forEach((item) => {
+            let td = document.createElement("td");
+            td.textContent = item;
             tr.appendChild(td);
           });
+          // Thêm class error-row nếu ID nằm trong errorRow
+          if (errorRow.includes(rows[0])) {
+            tr.classList.add("error-row");
+          }
           tbody.appendChild(tr);
         });
-        updateFilterResult(filteredData.length, globalData.length);
-        myPagination();
+        pagination();
       }
-      function updateFilterResult(filteredCount, totalCount) {
-        document.getElementById(
-          "filterResult"
-        ).textContent = `Hiển thị ${filteredCount} / ${totalCount} kết quả`;
-      }
-
-      // Hàm tạo bảng
-      function createTable(data) {
-        globalData = data.slice(1); // Lưu dữ liệu gốc (trừ tiêu đề)
-        // Tạo tiêu đề bảng
-        const headerRow = document.createElement("tr");
-        data[0].forEach((header, index) => {
-          const th = document.createElement("th");
-          th.textContent = header;
-          headerRow.appendChild(th);
-        });
-        document.querySelector("#myTable thead").appendChild(headerRow);
-        // Tạo các hàng dữ liệu
-        data.slice(1).forEach((row, index) => {
-          const tr = document.createElement("tr");
-          tr.setAttribute("id", index);
-          index++;
-          let rowID = "row" + index;
-          row.forEach((cell) => {
-            const td = document.createElement("td");
-            td.innerHTML = cell;
-            td.setAttribute("class", rowID);
-            td.setAttribute("onclick", "find('" + rowID + "')");
-            tr.appendChild(td);
-          });
-          document.querySelector("#myTable tbody").appendChild(tr);
-        });
-      }
-      // Hàm tạo form động
-      function createForm(headers) {
-        form.innerHTML = ""; // Xóa nội dung form cũ
+      function setForm(headers) {
         headers.forEach((header) => {
           const p = document.createElement("p");
-          p.setAttribute("id", header);
-          const br = document.createElement("br");
-          const label = document.createElement("label");
-          label.textContent = header + ": ";
-          const input = document.createElement("textarea");
-          input.type = "text";
-          input.name = header;
-          input.setAttribute("class", "myInput");
-          p.appendChild(label);
-          p.appendChild(br);
-          p.appendChild(input);
           form.appendChild(p);
+          const label = document.createElement("label");
+          label.textContent = header;
+          p.appendChild(label);
+          const input = document.createElement("textarea");
+          input.name = header;
+          p.appendChild(input);
+          const br = document.createElement("br");
+          p.appendChild(br);
         });
-
         const buttonContainer = document.createElement("p");
         ["Thêm", "Cập nhật", "Xóa"].forEach((text) => {
           const button = document.createElement("button");
@@ -279,82 +256,59 @@
         });
         form.appendChild(buttonContainer);
       }
-
-      // Hàm tìm dữ liệu hàng và ghi vào input
-      function find(row) {
-        const th = table.getElementsByTagName("th");
-        const td = table.getElementsByClassName(row);
-        for (let i = 0; i < th.length; i++) {
-          document.getElementsByClassName("myInput")[i].value = td[i].innerHTML;
-        }
+      function find(id) {
+        const row = document.getElementById(id);
+        const cells = row.querySelectorAll("td");
+        cells.forEach((cell, index) => {
+          inputs[index].value = cell.textContent;
+        });
       }
-
-      // Hàm thêm mới
       function addNew() {
-        const input = form.getElementsByClassName("myInput");
-        // Kiểm tra dòng đầu tiên
-        if (tbody.getElementsByTagName("TR").length >= 1) {
-          let lastRowID = "row" + tbody.getElementsByTagName("TR").length; //láy STT
-          input[0].value = tbody.getElementsByClassName(lastRowID)[0].innerHTML;
-          input[0].value++;
-        } else {
-          input[0].value = 1;
-        }
-        input[1].value = new Date().toLocaleString("vi-VN");
-        const tr = document.createElement("TR");
-        tbody.appendChild(tr);
-        let rowID = "row" + input[0].value;
-        for (let i = 0; i < input.length; i++) {
-          const td = document.createElement("TD");
-          td.setAttribute("class", rowID);
-          td.setAttribute("onclick", "find('" + rowID + "')");
-          td.innerHTML = input[i].value;
-          tr.appendChild(td);
-        }
-        buttonClick("add");
-        myPagination();
+        const maxId = tableData
+          .slice(1)
+          .reduce((max, row) => Math.max(max, row[0]), 0);
+        inputs[0].value = maxId + 1;
+        inputs[1].value = new Date().toLocaleString("vi-VN");
+        let newRow = []; // Khai báo biến newRow
+        newRow = Array.from(inputs).map((input) => input.value); // Sử dụng Array.from để chuyển đổi inputs thành mảng
+        tableData.push(newRow);
+        setBodyTable(tableData.slice(1));
+        handleSubmit("save");
         form.reset();
       }
-      // Hàm cập nhật
       function update() {
-        const input = form.getElementsByClassName("myInput");
-        const valueToUpdate = input[0].value;
-        const rows = tbody.rows;
-        for (let i = 0; i < rows.length; i++) {
-          const row = rows[i];
-          const td = row.cells[0].textContent;
-          if (td === valueToUpdate) {
-            for (let j = 0; j < row.cells.length; j++) {
-              row.cells[j].innerHTML = input[j].value;
-            }
-            break;
-          }
+        if (!inputs[0].value) {
+          document.getElementById("result").textContent =
+            "Chọn dòng cần cập nhật";
+          return;
+        } else {
+          const index = tableData.findIndex(
+            (row) => row[0].toString() === inputs[0].value
+          );
+          tableData[index] = Array.from(inputs).map((input) => input.value);
+          setBodyTable(tableData.slice(1));
+          handleSubmit("save");
+          form.reset();
         }
-        buttonClick("update");
-        form.reset();
       }
-      // Hàm xóa
       function Delete() {
-        const input = form.getElementsByClassName("myInput");
-        const valueToDelete = input[0].value;
-        const rows = tbody.rows;
-        for (let i = 0; i < rows.length; i++) {
-          const row = rows[i];
-          const td = row.cells[0].textContent;
-          if (td === valueToDelete) {
-            tbody.deleteRow(i);
-            break;
-          }
+        if (!inputs[0].value) {
+          document.getElementById("result").textContent = "Chọn dòng cần xóa";
+          return;
+        } else {
+          const index = tableData.findIndex(
+            (row) => row[0].toString() === inputs[0].value
+          );
+          tableData.splice(index, 1);
+          setBodyTable(tableData.slice(1));
+          handleSubmit("delete");
+          form.reset();
         }
-        buttonClick("delete");
-        myPagination();
-        form.reset();
       }
-      // Hàm xử lý sự kiện nút bấm
-      async function buttonClick(func) {
+      async function handleSubmit(param) {
         const formData = new FormData(form);
         const data = Object.fromEntries(formData.entries());
-        data.action = func;
+        data.action = param;
         console.log(data);
         try {
           const response = await fetch(scriptUrl, {
@@ -364,27 +318,28 @@
           const result = await response.json();
           if (result.success) {
             document.getElementById("result").textContent = result.message;
+            // Lọc ID khỏi errorRow nếu thành công
+            errorRow = errorRow.filter((id) => id !== data.ID);
           } else {
             document.getElementById("result").textContent = result.message;
+            errorRow.push(data.ID); // Lưu ID vào biến errorRow nếu có lỗi
           }
         } catch (error) {
           console.error("Lỗi:", error);
           document.getElementById("result").textContent = error.message;
+          errorRow.push(data.ID); // Lưu ID vào biến errorRow nếu có lỗi
         }
+        setBodyTable(tableData.slice(1));
       }
-
-      // Khởi tạo dữ liệu
       fetch(scriptUrl)
         .then((response) => response.json())
         .then((data) => {
-          createTable(data);
-          createForm(data[0]);
-          myPagination();
-          //updateFilterResult(data.length - 1, data.length - 1); // Cập nhật kết quả ban đầu
+          tableData = data;
+          setHeaderTable();
+          setBodyTable(tableData.slice(1));
+          setForm(tableData[0]);
         })
-        .catch((error) => {
-          console.error("Lỗi:", error);
-        });
+        .catch((error) => console.error("Error:", error));
     </script>
   </body>
 </html>
